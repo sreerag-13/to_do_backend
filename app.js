@@ -23,7 +23,8 @@ app.post("/signup",async(req,res)=>{
     UserModel.find({email:req.body.email}).then((items)=>{
   if(items.length>0){
         res.json({"status":"email is already exist"})
-    }else{
+    }
+    else{
         let result=new UserModel(input)
          result.save()
         res.json({"status":"success"})
@@ -36,7 +37,6 @@ app.post("/signin",async(req,res)=>{
     let input=req.body
     let result=UserModel.find({email:req.body.email}).then(
         (items)=>{
- 
         if (items.length>0) {
             const pass=Bcrypt.compareSync(req.body.password,items[0].password)
             if (pass) {
@@ -48,7 +48,7 @@ app.post("/signin",async(req,res)=>{
                     res.json({"status":"success","token":token,"userId":items[0]._id})
                 }
             })
-              
+    
             } else {
                 res.json({"status":"incorrect password"})
             }
@@ -259,6 +259,127 @@ app.post('/tasks/:id/toggle', async (req, res) => {
   } catch (error) {
     console.log('Error in /tasks/:id/toggle:', error.message);
     res.json({ status: 'error', message: 'Cannot update task' });
+  }
+});
+
+app.delete('/tasks/:id', async (req, res) => {
+  const token = req.headers.token;
+  if (!token) return res.json({ status: 'error', message: 'Please log in first' });
+  try {
+    const decoded = Jwt.verify(token, 'todoapp'); 
+    const user = await UserModel.findOne({ email: decoded.email });
+    if (!user) return res.json({ status: 'error', message: 'User not found' });
+    const task = await taskModel.findOne({ _id: req.params.id, userId: user._id });
+    if (!task) return res.json({ status: 'error', message: 'Task not found' });
+    const titleId = task.taskId;
+    await taskModel.deleteOne({ _id: req.params.id });
+    const tasks = await taskModel.find({ taskId: titleId });
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.isCompleted).length;
+    const percentage = totalTasks ? (completedTasks / totalTasks) * 100 : 0; 
+    await titleModel.updateOne({ _id: titleId }, { 
+      completionPercentage: percentage.toFixed(2), 
+      updatedAt: new Date() 
+    });
+    res.json({
+      status: 'success',
+      message: 'Task deleted',
+      titleId: titleId,
+      completionPercentage: percentage.toFixed(2)
+    });
+  } catch (error) {
+    console.log('Error deleting task:', error.message);
+    res.json({ status: 'error', message: 'Cannot delete task' });
+  }
+});
+app.put('/tasks/:id', async (req, res) => {
+  const token = req.headers.token;
+  if (!token) return res.json({ status: 'error', message: 'Please log in first' });
+  const { description, deadline } = req.body;
+  if (!description || !deadline) return res.json({ status: 'error', message: 'Description and deadline required' });
+  try {
+    const decoded = Jwt.verify(token, 'todoapp');
+    const user = await UserModel.findOne({ email: decoded.email });
+    if (!user) return res.json({ status: 'error', message: 'User not found' });
+    const task = await taskModel.findOne({ _id: req.params.id, userId: user._id });
+    if (!task) return res.json({ status: 'error', message: 'Task not found' });
+    task.description = description;
+    task.deadline = new Date(deadline);
+    task.updatedAt = new Date();
+    await task.save();
+    res.json({
+      status: 'success',
+      message: 'Task updated',
+      task: {
+        id: task._id,
+        description: task.description,
+        deadline: task.deadline,
+        isCompleted: task.isCompleted
+      }
+    });
+  } catch (error) {
+    console.log('Error updating task:', error.message);
+    res.json({ status: 'error', message: 'Cannot update task' });
+  }
+});
+app.delete('/titles/:id', async (req, res) => {
+  const token = req.headers.token;
+  if (!token) return res.json({ status: 'error', message: 'Please log in first' });
+  try {
+    const decoded =Jwt.verify(token, 'todoapp');
+    const user = await UserModel.findOne({ email: decoded.email });
+    if (!user) return res.json({ status: 'error', message: 'User not found' });
+    const title = await titleModel.findOne({ _id: req.params.id, userId: user._id });
+    if (!title) return res.json({ status: 'error', message: 'Title not found' });
+    await taskModel.deleteMany({ taskId: req.params.id });
+    await titleModel.deleteOne({ _id: req.params.id });
+    res.json({
+      status: 'success',
+      message: 'Title and tasks deleted'
+    });
+  } catch (error) {
+    console.log('Error deleting title:', error.message);
+    res.json({ status: 'error', message: 'Cannot delete title' });
+  }
+});
+
+app.put('/titles/:id', async (req, res) => {
+  const token = req.headers.token;
+  const { title } = req.body;
+  if (!token) return res.json({ status: 'error', message: 'Please log in first' });
+  if (!title || title.trim() === '') return res.json({ status: 'error', message: 'Title required' });
+  try {
+    const decoded = Jwt.verify(token, 'todoapp');
+    const user = await UserModel.findOne({ email: decoded.email });
+    if (!user) return res.json({ status: 'error', message: 'User not found' });
+    const titleDoc = await titleModel.findOne({ _id: req.params.id, userId: user._id });
+    if (!titleDoc) return res.json({ status: 'error', message: 'Title not found' });
+    titleDoc.title = title.trim();
+    titleDoc.updatedAt = new Date();
+    await titleDoc.save();
+    res.json({
+      status: 'success',
+      message: 'Title updated',
+      title: {
+        id: titleDoc._id,
+        title: titleDoc.title
+      }
+    });
+  } catch (error) {
+    console.log('Error updating title:', error.message);
+    res.json({ status: 'error', message: 'Cannot update title' });
+  }
+});
+app.get("/user/:userId", async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.params.userId);
+    if (user) {
+      res.json({ status: "success", user: { name: user.name } });
+    } else {
+      res.json({ status: "error" });
+    }
+  } catch (err) {
+    res.json({ status: "error", errorMessage: err.message });
   }
 });
 app.listen(3030,()=>{
