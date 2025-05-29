@@ -23,7 +23,8 @@ app.post("/signup",async(req,res)=>{
     UserModel.find({email:req.body.email}).then((items)=>{
   if(items.length>0){
         res.json({"status":"email is already exist"})
-    }else{
+    }
+    else{
         let result=new UserModel(input)
          result.save()
         res.json({"status":"success"})
@@ -36,7 +37,6 @@ app.post("/signin",async(req,res)=>{
     let input=req.body
     let result=UserModel.find({email:req.body.email}).then(
         (items)=>{
- 
         if (items.length>0) {
             const pass=Bcrypt.compareSync(req.body.password,items[0].password)
             if (pass) {
@@ -48,7 +48,7 @@ app.post("/signin",async(req,res)=>{
                     res.json({"status":"success","token":token,"userId":items[0]._id})
                 }
             })
-              
+    
             } else {
                 res.json({"status":"incorrect password"})
             }
@@ -262,12 +262,11 @@ app.post('/tasks/:id/toggle', async (req, res) => {
   }
 });
 
-// DELETE /tasks/:id
 app.delete('/tasks/:id', async (req, res) => {
   const token = req.headers.token;
   if (!token) return res.json({ status: 'error', message: 'Please log in first' });
   try {
-    const decoded = Jwt.verify(token, 'todoapp'); // Fixed case: Jwt -> jwt
+    const decoded = Jwt.verify(token, 'todoapp'); 
     const user = await UserModel.findOne({ email: decoded.email });
     if (!user) return res.json({ status: 'error', message: 'User not found' });
     const task = await taskModel.findOne({ _id: req.params.id, userId: user._id });
@@ -277,7 +276,7 @@ app.delete('/tasks/:id', async (req, res) => {
     const tasks = await taskModel.find({ taskId: titleId });
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(t => t.isCompleted).length;
-    const percentage = totalTasks ? (completedTasks / totalTasks) * 100 : 0; // Added semicolon and default 0
+    const percentage = totalTasks ? (completedTasks / totalTasks) * 100 : 0; 
     await titleModel.updateOne({ _id: titleId }, { 
       completionPercentage: percentage.toFixed(2), 
       updatedAt: new Date() 
@@ -293,8 +292,6 @@ app.delete('/tasks/:id', async (req, res) => {
     res.json({ status: 'error', message: 'Cannot delete task' });
   }
 });
-
-// PUT /tasks/:id
 app.put('/tasks/:id', async (req, res) => {
   const token = req.headers.token;
   if (!token) return res.json({ status: 'error', message: 'Please log in first' });
@@ -325,8 +322,6 @@ app.put('/tasks/:id', async (req, res) => {
     res.json({ status: 'error', message: 'Cannot update task' });
   }
 });
-
-// DELETE /titles/:id
 app.delete('/titles/:id', async (req, res) => {
   const token = req.headers.token;
   if (!token) return res.json({ status: 'error', message: 'Please log in first' });
